@@ -37,6 +37,7 @@ ENV/
 *.sublime-project
 
 # Logs
+logs/*
 logs/
 *.log
 log/
