@@ -17,24 +17,48 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 
 ## Installation
 
-### From Source
-1. Clone the repository:
-   ```bash
-   git clone git@github.com:ml-lubich/website-scraper.git
-   cd website-scraper
-   ```
-
-2. Install the package:
-   ```bash
-   pip install .
-   ```
-
-### From PyPI (coming soon)
 ```bash
 pip install website-scraper
 ```
 
 ## Usage
+
+### As a Python Package
+
+Here's a complete example showing how to use the package in your Python code:
+
+```python
+from website_scraper import WebScraper
+import json
+
+def main():
+    # Initialize the scraper
+    scraper = WebScraper(
+        base_url="https://example.com",  # The website you want to scrape
+        delay_range=(2, 5),              # Random delay between requests (in seconds)
+        max_retries=3,                   # Number of retries for failed requests
+        log_dir="scraper_logs",          # Directory for log files
+        max_workers=4,                   # Number of parallel workers (default: CPU count)
+        verify_ssl=True                  # Set to False if you have SSL issues
+    )
+
+    # Start scraping with progress bar
+    print("Starting to scrape...")
+    data, stats = scraper.scrape(show_progress=True)
+
+    # Print statistics
+    print("\nScraping Statistics:")
+    print(f"Total pages scraped: {stats['total_pages_scraped']}")
+    print(f"Success rate: {stats['success_rate']}")
+    print(f"Duration: {stats['duration']}")
+
+    # Save results to a file
+    with open("scraping_results.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    print("\nResults saved to scraping_results.json")
+
+if __name__ == "__main__":
+    main()
 
 ### As a Command-Line Tool
 
@@ -45,77 +69,26 @@ Basic usage:
 website-scraper https://example.com
 ```
 
-With options (long form):
+With options:
 ```bash
 website-scraper https://example.com \
     --min-delay 2 \
     --max-delay 5 \
+    --retries 3 \
     --workers 4 \
-    --output results.json \
-    --log-dir logs \
-    --no-verify-ssl
-```
-
-With options (short form):
-```bash
-website-scraper https://example.com \
-    -m 2 \
-    -M 5 \
-    -w 4 \
-    -o results.json \
-    -l logs \
-    -k
+    --log-dir scraper_logs \
+    --output results.json
 ```
 
 Available options:
 - `-m, --min-delay`: Minimum delay between requests (seconds)
 - `-M, --max-delay`: Maximum delay between requests (seconds)
-- `-r, --retries`: Maximum number of retry attempts
+- `-r, --retries`: Maximum retry attempts for failed requests
 - `-w, --workers`: Number of worker processes
-- `-l, --log-dir`: Directory to store log files
-- `-o, --output`: Output file path for scraped data (JSON)
+- `-l, --log-dir`: Directory for log files
+- `-o, --output`: Output file path (JSON)
 - `-q, --quiet`: Suppress progress bar
-- `-k, --no-verify-ssl`: Disable SSL certificate verification (use with caution)
-
-### Output Handling
-
-The scraper can handle output in two ways:
-1. Write to a file (when `-o` or `--output` is specified)
-2. Print to stdout (when no output file is specified)
-
-This allows for flexible usage:
-```bash
-# Write to file
-website-scraper example.com -o results.json
-
-# Pipe to another command
-website-scraper example.com | jq .
-
-# Save output using shell redirection
-website-scraper example.com > results.json
-```
-
-### As a Python Package
-
-```python
-from website_scraper import WebScraper
-
-# Initialize the scraper
-scraper = WebScraper(
-    base_url="https://example.com",
-    delay_range=(2, 5),
-    max_retries=3,
-    log_dir="logs",
-    verify_ssl=True  # Set to False to disable SSL verification
-)
-
-# Start scraping
-data, stats = scraper.scrape(show_progress=True)
-
-# Process results
-print(f"Scraped {stats['total_pages_scraped']} pages")
-print(f"Processed {stats['total_urls_processed']} URLs")
-```
+- `-k, --no-verify-ssl`: Disable SSL verification
 
 ## Output Format
 
@@ -140,25 +113,6 @@ The scraper outputs JSON data in the following format:
     }
 }
 ```
-
-## Development
-
-1. Clone the repository:
-   ```bash
-   git clone git@github.com:ml-lubich/website-scraper.git
-   cd website-scraper
-   ```
-
-2. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-3. Install in development mode:
-   ```bash
-   pip install -e .
-   ```
 
 ## Logging
 
