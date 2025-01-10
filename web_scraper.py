@@ -20,6 +20,26 @@ from queue import Empty
 from multiprocessing import Manager
 from tqdm import tqdm
 import math
+import warnings
+from urllib3.exceptions import InsecureRequestWarning
+from bs4.builder import XMLParsedAsHTMLWarning
+try:
+    import lxml
+except ImportError:
+    pass  # Will be installed if needed in main()
+
+# Suppress specific warnings
+warnings.filterwarnings('ignore', category=InsecureRequestWarning)
+warnings.filterwarnings('ignore', category=XMLParsedAsHTMLWarning)
+
+# Add logging configuration
+logging.basicConfig(
+    level=logging.WARNING,  # Only show warnings and above for other loggers
+    handlers=[logging.NullHandler()]  # Prevent output to console
+)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Enable all logs for our logger
 
 class WebScraper:
     def __init__(self, base_url: str, 
@@ -27,7 +47,8 @@ class WebScraper:
                  max_retries: int = 3,
                  log_dir: str = 'logs',
                  verbose: bool = True,
-                 max_workers: int = None):
+                 max_workers: int = None,
+                 verify_ssl: bool = True):
         
         # Initialize standard components first
         self.base_url = base_url
@@ -36,6 +57,7 @@ class WebScraper:
         self.max_retries = max_retries
         self.verbose = verbose
         self.max_workers = max_workers or mp.cpu_count()
+        self.verify_ssl = verify_ssl
         
         # Create logs directory first
         self.log_dir = Path(log_dir)
@@ -106,10 +128,11 @@ class WebScraper:
         self.visited_urls = set()
 
     def _setup_logger(self) -> logging.Logger:
-        """Configure logging with file handler."""
+        """Configure logging with file handler and minimal console output."""
         try:
             logger = logging.getLogger('WebScraper')
             logger.setLevel(logging.DEBUG)
+            logger.propagate = False  # Prevent propagation to root logger
 
             # Clear any existing handlers
             if logger.handlers:
@@ -118,17 +141,34 @@ class WebScraper:
             # Ensure parent directory exists
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-            # File handler with rotation
-            file_handler = logging.handlers.RotatingFileHandler(
+            # Create detailed file handler for debug logs
+            debug_file = self.log_dir / f'debug_{time.strftime("%Y%m%d_%H%M%S")}.log'
+            debug_handler = logging.handlers.RotatingFileHandler(
+                str(debug_file),
+                maxBytes=1024*1024, 
+                backupCount=5,
+                encoding='utf-8'
+            )
+            debug_handler.setLevel(logging.DEBUG)
+            debug_handler.setFormatter(logging.Formatter(
+                '%(asctime)s - %(levelname)s - %(message)s'
+            ))
+            
+            # Create file handler for info and above
+            info_handler = logging.handlers.RotatingFileHandler(
                 str(self.log_file),
                 maxBytes=1024*1024, 
                 backupCount=5,
                 encoding='utf-8'
             )
-            file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - %(levelname)s - %(message)s'))
+            info_handler.setLevel(logging.INFO)
+            info_handler.setFormatter(logging.Formatter(
+                '%(asctime)s - %(levelname)s - %(message)s'
+            ))
             
-            logger.addHandler(file_handler)
+            logger.addHandler(debug_handler)
+            logger.addHandler(info_handler)
+            
             return logger
             
         except Exception as e:
@@ -178,7 +218,7 @@ class WebScraper:
         return headers
 
     def _make_request(self, url: str, session: requests.Session) -> Optional[requests.Response]:
-        """Make request with consistent browser-like behavior."""
+        """Make request with consistent browser-like behavior and enhanced logging."""
         for attempt in range(self.max_retries):
             try:
                 session.headers.update(self._get_headers())
@@ -188,22 +228,37 @@ class WebScraper:
                 delay = max(0.1, self._get_random_delay())
                 time.sleep(delay)
                 
+                self.logger.info(f"Attempting request to {url} (attempt {attempt + 1}/{self.max_retries})")
+                self.logger.debug(f"Request headers: {session.headers}")
+                
                 response = session.get(
                     url,
                     timeout=timeout,
-                    allow_redirects=True
+                    allow_redirects=True,
+                    verify=self.verify_ssl
                 )
+                
+                self.logger.info(f"Response status: {response.status_code}")
+                self.logger.debug(f"Response headers: {dict(response.headers)}")
+                
                 response.raise_for_status()
                 return response
 
+            except requests.exceptions.SSLError as e:
+                self.logger.error(f"SSL Error on attempt {attempt + 1}: {str(e)}")
+            except requests.exceptions.ConnectionError as e:
+                self.logger.error(f"Connection Error on attempt {attempt + 1}: {str(e)}")
+            except requests.exceptions.Timeout as e:
+                self.logger.error(f"Timeout Error on attempt {attempt + 1}: {str(e)}")
             except requests.exceptions.RequestException as e:
-                self.logger.debug(f"Attempt {attempt + 1} failed: {str(e)}")
-                if attempt < self.max_retries - 1:
-                    # Ensure positive backoff delay
-                    backoff_delay = max(0.1, self._get_random_delay() * 2)
-                    time.sleep(backoff_delay)
-                continue
+                self.logger.error(f"Request Error on attempt {attempt + 1}: {str(e)}")
             
+            if attempt < self.max_retries - 1:
+                backoff_delay = max(0.1, self._get_random_delay() * 2)
+                self.logger.info(f"Retrying in {backoff_delay:.2f} seconds...")
+                time.sleep(backoff_delay)
+            
+        self.logger.error(f"All {self.max_retries} attempts failed for URL: {url}")
         return None
 
     def _extract_links(self, soup: BeautifulSoup, current_url: str) -> List[str]:
@@ -220,35 +275,85 @@ class WebScraper:
         return list(set(links))
 
     def _extract_data(self, soup: BeautifulSoup) -> dict:
-        """Extract relevant data from the page. Override this method for custom extraction."""
-        return {
-            'title': soup.title.string if soup.title else None,
-            'text': soup.get_text(separator=' ', strip=True),
-            'meta_description': soup.find('meta', {'name': 'description'})['content'] 
-                if soup.find('meta', {'name': 'description'}) else None
-        }
+        """Extract relevant data from the page with better error handling."""
+        data = {}
+        try:
+            # Extract title safely
+            if soup.title:
+                try:
+                    data['title'] = str(soup.title.string) if soup.title.string else None
+                except Exception as e:
+                    self.logger.error(f"Error extracting title: {str(e)}")
+                    data['title'] = None
+
+            # Extract text safely
+            try:
+                # Limit text length to prevent recursion
+                text = soup.get_text(separator=' ', strip=True)
+                data['text'] = text[:100000] if text else None  # Limit to 100K chars
+            except Exception as e:
+                self.logger.error(f"Error extracting text: {str(e)}")
+                data['text'] = None
+
+            # Extract meta description safely
+            try:
+                meta = soup.find('meta', {'name': 'description'})
+                data['meta_description'] = meta['content'] if meta and 'content' in meta.attrs else None
+            except Exception as e:
+                self.logger.error(f"Error extracting meta description: {str(e)}")
+                data['meta_description'] = None
+
+        except Exception as e:
+            self.logger.error(f"Fatal error in data extraction: {str(e)}")
+            return {'error': str(e)}
+
+        return data
 
     def _process_url(self, url: str, shared_visited: list) -> tuple[str, dict, list]:
-        """Process URL with varied session parameters."""
+        """Process URL with enhanced error handling and logging."""
         if url in shared_visited:
+            self.logger.debug(f"Skipping already visited URL: {url}")
             return url, None, []
 
         session = requests.Session()
-        
-        # Randomize session parameters
-        session.verify = True
-        session.stream = random.choice([True, False])
+        session.verify = self.verify_ssl
         
         try:
+            self.logger.info(f"Processing URL: {url}")
             response = self._make_request(url, session)
+            
             if response:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                page_data = self._extract_data(soup)
-                new_links = self._extract_links(soup, url)
-                return url, page_data, new_links
-                
+                try:
+                    self.logger.debug(f"Parsing content from {url}")
+                    
+                    # Check content type for XML
+                    content_type = response.headers.get('content-type', '').lower()
+                    
+                    if 'xml' in content_type or url.endswith('.xml'):
+                        # Use XML parser for XML content
+                        soup = BeautifulSoup(response.text, 'xml')
+                        self.logger.debug("Using XML parser for XML content")
+                    else:
+                        # Use HTML parser for other content
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        self.logger.debug("Using HTML parser for HTML content")
+                    
+                    self.logger.debug(f"Extracting data from {url}")
+                    page_data = self._extract_data(soup)
+                    
+                    self.logger.debug(f"Extracting links from {url}")
+                    new_links = self._extract_links(soup, url)
+                    
+                    self.logger.info(f"Successfully processed {url}")
+                    self.logger.debug(f"Found {len(new_links)} new links")
+                    
+                    return url, page_data, new_links
+                except Exception as e:
+                    self.logger.error(f"Error processing content from {url}: {str(e)}")
+                    return url, {'error': str(e)}, []
+            
         except Exception as e:
-            self.logger.error(f"Error processing {url}: {str(e)}")
+            self.logger.error(f"Unexpected error processing {url}: {str(e)}")
             
         return url, None, []
 
@@ -265,7 +370,6 @@ class WebScraper:
 
     def scrape(self, show_progress: bool = True) -> tuple[dict, dict]:
         """Main scraping method using multiprocessing with progress tracking."""
-        # Add start_time at the beginning of the method
         start_time = time.time()
         
         with Manager() as manager:
@@ -277,14 +381,15 @@ class WebScraper:
             total_estimate = 10
             
             if show_progress:
+                # Configure progress bar to only show itself
                 pbar = tqdm(
                     total=total_estimate,
                     desc="Scraping progress",
                     unit="pages",
                     dynamic_ncols=True,
                     leave=True,
-                    bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} ['
-                              'Elapsed: {elapsed}, Remaining: {remaining}]'
+                    file=sys.stdout,  # Explicitly use stdout
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}'  # Simplified format
                 )
                 
                 def format_interval(t):
@@ -326,22 +431,24 @@ class WebScraper:
                                 total_estimate,
                                 len(shared_visited) + len(url_queue) + len(new_unseen_links)
                             )
-                            pbar.total = total_estimate
+                            if show_progress:
+                                pbar.total = total_estimate
                         
                         for link in new_unseen_links:
                             url_queue.append(link)
 
-                        if pbar:
+                        if show_progress:
                             pbar.n = shared_progress.value
                             pbar.refresh()
                         
+                        # Log progress to file only
                         self.logger.info(
                             f"Progress: {(shared_progress.value/total_estimate)*100:.1f}% "
                             f"({shared_progress.value}/{total_estimate}) - Queue: {len(url_queue)}"
                         )
 
-            # Ensure progress bar shows 100%
-            if pbar:
+            # Ensure progress bar shows 100% and close it
+            if show_progress:
                 pbar.n = pbar.total
                 pbar.refresh()
                 pbar.close()
@@ -365,24 +472,35 @@ class WebScraper:
 def main():
     parser = argparse.ArgumentParser(description='Web Scraper CLI')
     parser.add_argument('url', help='Base URL to scrape')
-    parser.add_argument('--min-delay', type=float, default=1.0,
+    parser.add_argument('-m', '--min-delay', type=float, default=1.0,
                       help='Minimum delay between requests (seconds)')
-    parser.add_argument('--max-delay', type=float, default=3.0,
+    parser.add_argument('-M', '--max-delay', type=float, default=3.0,
                       help='Maximum delay between requests (seconds)')
-    parser.add_argument('--retries', type=int, default=3,
+    parser.add_argument('-r', '--retries', type=int, default=3,
                       help='Maximum number of retry attempts')
-    parser.add_argument('--workers', type=int, default=None,
+    parser.add_argument('-w', '--workers', type=int, default=None,
                       help='Number of worker processes (default: CPU count)')
-    parser.add_argument('--log-dir', type=str, default='logs',
+    parser.add_argument('-l', '--log-dir', type=str, default='logs',
                       help='Directory to store log files')
-    parser.add_argument('--output', type=str,
+    parser.add_argument('-o', '--output', type=str,
                       help='Output file path for scraped data (JSON)')
-    parser.add_argument('--quiet', action='store_true',
+    parser.add_argument('-q', '--quiet', action='store_true',
                       help='Suppress progress bar')
+    parser.add_argument('-k', '--no-verify-ssl', action='store_true',
+                      help='Disable SSL certificate verification (use with caution)')
 
     args = parser.parse_args()
 
     try:
+        # Install lxml if not present
+        try:
+            import lxml
+        except ImportError:
+            print("Installing required lxml package...", file=sys.stderr)
+            import subprocess
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "lxml"])
+            print("lxml installed successfully", file=sys.stderr)
+
         # Create log directory first
         log_dir = Path(args.log_dir)
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -391,22 +509,23 @@ def main():
             base_url=args.url,
             delay_range=(args.min_delay, args.max_delay),
             max_retries=args.retries,
-            log_dir=str(log_dir),  # Convert Path to string
-            max_workers=args.workers
+            log_dir=str(log_dir),
+            max_workers=args.workers,
+            verify_ssl=not args.no_verify_ssl
         )
 
         data, stats = scraper.scrape(show_progress=not args.quiet)
         
-        # Print summary and handle output as before
-        print("\nScraping Summary:", file=sys.stderr)
-        print("-----------------", file=sys.stderr)
-        print(f"Start URL: {stats['start_url']}", file=sys.stderr)
-        print(f"Total Pages Scraped: {stats['total_pages_scraped']}", file=sys.stderr)
-        print(f"Total URLs Processed: {stats['total_urls_processed']}", file=sys.stderr)
-        print(f"Failed URLs: {stats['failed_urls']}", file=sys.stderr)
-        print(f"Success Rate: {stats['success_rate']}", file=sys.stderr)
-        print(f"Duration: {stats['duration']}", file=sys.stderr)
-        print("-----------------", file=sys.stderr)
+        # Write summary to log file
+        scraper.logger.info("\nScraping Summary:")
+        scraper.logger.info("-----------------")
+        scraper.logger.info(f"Start URL: {stats['start_url']}")
+        scraper.logger.info(f"Total Pages Scraped: {stats['total_pages_scraped']}")
+        scraper.logger.info(f"Total URLs Processed: {stats['total_urls_processed']}")
+        scraper.logger.info(f"Failed URLs: {stats['failed_urls']}")
+        scraper.logger.info(f"Success Rate: {stats['success_rate']}")
+        scraper.logger.info(f"Duration: {stats['duration']}")
+        scraper.logger.info("-----------------")
 
         # Handle output
         output = {
@@ -419,13 +538,13 @@ def main():
             output_path.parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(output, f, indent=2, ensure_ascii=False)
-            print(f"\nData saved to: {output_path}", file=sys.stderr)
+            scraper.logger.info(f"Data saved to: {output_path}")
         else:
-            # Print only the JSON output to stdout
+            # Print JSON to stdout
             print(json.dumps(output, indent=2, ensure_ascii=False))
 
     except Exception as e:
-        print(f"\nFatal error: {str(e)}", file=sys.stderr)
+        logger.error(f"Fatal error: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":
