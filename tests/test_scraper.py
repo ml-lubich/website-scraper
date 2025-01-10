@@ -5,6 +5,8 @@ from pathlib import Path
 import tempfile
 import shutil
 import requests
+import os
+import time
 
 class TestWebScraper(unittest.TestCase):
     def setUp(self):
@@ -16,8 +18,26 @@ class TestWebScraper(unittest.TestCase):
         )
 
     def tearDown(self):
+        # Close all log handlers before cleanup
+        if hasattr(self, 'scraper') and self.scraper:
+            if hasattr(self.scraper, 'logger') and self.scraper.logger:
+                for handler in self.scraper.logger.handlers:
+                    handler.close()
+                self.scraper.logger.handlers.clear()
+        
+        # Wait a moment to ensure files are closed
+        time.sleep(0.1)
+        
         # Clean up the temporary directory
-        shutil.rmtree(self.test_dir)
+        for retry in range(3):
+            try:
+                if os.path.exists(self.test_dir):
+                    shutil.rmtree(self.test_dir)
+                break
+            except Exception:
+                if retry < 2:  # Don't sleep on last attempt
+                    time.sleep(0.1 * (retry + 1))
+                continue
 
     def test_initialization(self):
         """Test scraper initialization"""

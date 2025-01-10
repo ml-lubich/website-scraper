@@ -134,12 +134,11 @@ class WebScraper:
             logger.setLevel(logging.DEBUG)
             logger.propagate = False  # Prevent propagation to root logger
 
-            # Clear any existing handlers
+            # Clear any existing handlers and close them properly
             if logger.handlers:
+                for handler in logger.handlers:
+                    handler.close()
                 logger.handlers.clear()
-
-            # Ensure parent directory exists
-            self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
             # Create detailed file handler for debug logs
             debug_file = self.log_dir / f'debug_{time.strftime("%Y%m%d_%H%M%S")}.log'
@@ -147,7 +146,8 @@ class WebScraper:
                 str(debug_file),
                 maxBytes=1024*1024, 
                 backupCount=5,
-                encoding='utf-8'
+                encoding='utf-8',
+                delay=True  # Delay file creation until first write
             )
             debug_handler.setLevel(logging.DEBUG)
             debug_handler.setFormatter(logging.Formatter(
@@ -159,7 +159,8 @@ class WebScraper:
                 str(self.log_file),
                 maxBytes=1024*1024, 
                 backupCount=5,
-                encoding='utf-8'
+                encoding='utf-8',
+                delay=True  # Delay file creation until first write
             )
             info_handler.setLevel(logging.INFO)
             info_handler.setFormatter(logging.Formatter(
@@ -173,6 +174,15 @@ class WebScraper:
             
         except Exception as e:
             raise Exception(f"Failed to setup logger: {str(e)}")
+
+    def __del__(self):
+        """Cleanup method to ensure proper closing of log files."""
+        if hasattr(self, 'logger') and self.logger:
+            for handler in self.logger.handlers:
+                try:
+                    handler.close()
+                except Exception:
+                    pass  # Ignore errors during cleanup
 
     def _get_random_delay(self) -> float:
         """Get delay using different patterns with guaranteed positive values."""
