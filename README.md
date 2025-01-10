@@ -17,35 +17,37 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 
 ## Installation
 
+### From Source
 1. Clone the repository:
    ```bash
    git clone git@github.com:ml-lubich/website-scraper.git
-   cd web-scraper
+   cd website-scraper
    ```
 
-2. Create a virtual environment (optional but recommended):
+2. Install the package:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install .
    ```
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### From PyPI (coming soon)
+```bash
+pip install website-scraper
+```
 
 ## Usage
 
 ### As a Command-Line Tool
 
+The package installs a `website-scraper` command that can be used directly:
+
 Basic usage:
 ```bash
-python web_scraper.py https://example.com
+website-scraper https://example.com
 ```
 
 With options (long form):
 ```bash
-python web_scraper.py https://example.com \
+website-scraper https://example.com \
     --min-delay 2 \
     --max-delay 5 \
     --workers 4 \
@@ -56,7 +58,7 @@ python web_scraper.py https://example.com \
 
 With options (short form):
 ```bash
-python web_scraper.py https://example.com \
+website-scraper https://example.com \
     -m 2 \
     -M 5 \
     -w 4 \
@@ -84,19 +86,19 @@ The scraper can handle output in two ways:
 This allows for flexible usage:
 ```bash
 # Write to file
-python web_scraper.py example.com -o results.json
+website-scraper example.com -o results.json
 
 # Pipe to another command
-python web_scraper.py example.com | jq .
+website-scraper example.com | jq .
 
 # Save output using shell redirection
-python web_scraper.py example.com > results.json
+website-scraper example.com > results.json
 ```
 
-### As a Python Module
+### As a Python Package
 
 ```python
-from web_scraper import WebScraper
+from website_scraper import WebScraper
 
 # Initialize the scraper
 scraper = WebScraper(
@@ -138,6 +140,25 @@ The scraper outputs JSON data in the following format:
     }
 }
 ```
+
+## Development
+
+1. Clone the repository:
+   ```bash
+   git clone git@github.com:ml-lubich/website-scraper.git
+   cd website-scraper
+   ```
+
+2. Create a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. Install in development mode:
+   ```bash
+   pip install -e .
+   ```
 
 ## Logging
 
