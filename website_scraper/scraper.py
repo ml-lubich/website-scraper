@@ -17,7 +17,7 @@ import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from queue import Empty
-from multiprocessing import Manager
+from multiprocessing import Manager, freeze_support
 from tqdm import tqdm
 import math
 import warnings
@@ -470,6 +470,10 @@ class WebScraper:
             return dict(shared_results), stats
 
 def main():
+    # Add Windows multiprocessing support
+    if sys.platform.startswith('win'):
+        freeze_support()
+
     parser = argparse.ArgumentParser(description='Web Scraper CLI')
     parser.add_argument('url', help='Base URL to scrape')
     parser.add_argument('-m', '--min-delay', type=float, default=1.0,
