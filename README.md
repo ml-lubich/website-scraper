@@ -15,6 +15,15 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 - XML content detection and proper handling
 - SSL verification options
 
+## Repository layout
+
+| Path | Role |
+|------|------|
+| `website_scraper/` | Installable package: `WebScraper`, CLI entrypoint |
+| `tests/` | Unit tests |
+| `examples/` | Optional runnable demos (not installed via `pip`) |
+| `archive/` | Historical snapshots; **not** part of the public API |
+
 ## Installation
 
 ```bash
@@ -59,6 +68,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
 
 ### As a Command-Line Tool
 
@@ -129,6 +139,14 @@ The logs include:
 - Error messages
 - Content type detection
 - Parser selection
+
+## Examples (repo checkout only)
+
+```bash
+python examples/reddit_berkeley_preview.py
+```
+
+Fetches a text preview of a public subreddit HTML page using `requests` + BeautifulSoup. For full-site crawling, use `WebScraper` or the `website-scraper` CLI above.
 
 ## Error Handling
 

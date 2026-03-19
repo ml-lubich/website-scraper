@@ -1,3 +1,9 @@
+## 0.1.2
+
+- Reorganize repo: `archive/ml_ms_2020/` for the 2020 ML/Berkeley snapshot (not shipped as importable package code).
+- Add `examples/reddit_berkeley_preview.py` (Python 3) as an optional demo aligned with the main stack.
+- Fix README fenced code block in the package usage section.
+
 Initial release of website-scraper
 
 Features:
