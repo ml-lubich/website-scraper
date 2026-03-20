@@ -24,6 +24,12 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 | `examples/` | Optional runnable demos (not installed via `pip`) |
 | `archive/` | Historical snapshots; **not** part of the public API |
 
+## Documentation
+
+- **Canonical spec:** [`docs/OVERVIEW.md`](docs/OVERVIEW.md) (index) — architecture, API contract, testing, and deployment notes live alongside it in `docs/`.
+- **This README:** install, quick start, CLI reference, and examples.
+- **Releases:** [GitHub releases](https://github.com/ml-lubich/website-scraper/releases) and git history.
+
 ## Installation
 
 ```bash

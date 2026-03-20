@@ -48,14 +48,19 @@ output/
 data/
 *.json
 
-# Testing
+# Testing / coverage (never commit reports or raw data files)
 .coverage
+.coverage.*
+.coverage*
+!.coveragerc
 htmlcov/
 .pytest_cache/
 .tox/
-.coverage.*
 coverage.xml
 *.cover
+*.lcov
+lcov.info
+junit.xml
 .hypothesis/
 
 # Distribution
