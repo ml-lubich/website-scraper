@@ -2,17 +2,39 @@
 
 ## Runner
 
-- **Framework:** pytest (see repository `tests/` and any CI configuration).
-- **Layout:** `tests/` with `test_*.py` modules.
+- **Framework:** pytest.
+- **Layout:** `tests/` (currently `tests/test_scraper.py`).
+
+## Install (local)
+
+Matches CI (see `.github/workflows/test.yml`):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -U pip
+pip install -r requirements-dev.txt
+pip install -e .
+```
+
+Or equivalently:
+
+```bash
+pip install -e ".[dev]"
+```
 
 ## Commands
 
 ```bash
-pytest
+python -m pytest tests/ -v
 ```
 
-Use a virtual environment with dev dependencies if your workflow installs them (e.g. `pytest` via `pip install -e ".[dev]"` if defined).
+Optional coverage:
+
+```bash
+python -m pytest tests/ --cov=website_scraper --cov-report=term-missing
+```
 
 ## Expectations
 
-Tests should exercise real package imports and core `WebScraper` / CLI behavior where practical. Prefer minimal mocking for HTTP only when network isolation is required; follow patterns already used in `tests/`.
+`TestWebScraper` uses **`unittest`**-style tests run by pytest; HTTP is **mocked** via `unittest.mock.patch` on `requests.Session` where network I/O must be avoided. Link and data extraction tests use real BeautifulSoup parsing on fixture HTML (no network).

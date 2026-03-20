@@ -32,6 +32,16 @@ setup(
         "tqdm>=4.50.0",
         "lxml>=4.9.0",
     ],
+    extras_require={
+        "dev": [
+            "pytest>=7.0.0",
+            "pytest-cov>=4.0.0",
+            "black>=22.0.0",
+            "flake8>=4.0.0",
+            "mypy>=0.900",
+            "build>=0.7.0",
+        ],
+    },
     entry_points={
         'console_scripts': [
             'website-scraper=website_scraper.cli:main',
