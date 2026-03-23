@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="website-scraper",
-    version="0.1.2",
+    version="0.1.3",
     author="Misha Lubich",
     author_email="michaelle.lubich@gmail.com",
     description="A robust, multiprocessing-enabled web scraper",
@@ -40,6 +40,9 @@ setup(
             "flake8>=4.0.0",
             "mypy>=0.900",
             "build>=0.7.0",
+        ],
+        "undetected": [
+            "undetected-chromedriver>=3.5.0",
         ],
     },
     entry_points={

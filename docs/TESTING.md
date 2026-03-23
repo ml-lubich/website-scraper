@@ -3,7 +3,7 @@
 ## Runner
 
 - **Framework:** pytest.
-- **Layout:** `tests/` (currently `tests/test_scraper.py`).
+- **Layout:** `tests/` (currently `tests/test_scraper.py`, including undetected-chromedriver paths exercised with fakes/mocks so CI does not need Chrome).
 
 ## Install (local)
 

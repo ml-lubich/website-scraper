@@ -24,6 +24,16 @@ def main():
                       help='Suppress progress bar')
     parser.add_argument('-k', '--no-verify-ssl', action='store_true',
                       help='Disable SSL certificate verification (use with caution)')
+    parser.add_argument(
+        '--undetected-chrome',
+        action='store_true',
+        help='Fetch pages with undetected-chromedriver (install: pip install undetected-chromedriver)',
+    )
+    parser.add_argument(
+        '--uc-headed',
+        action='store_true',
+        help='With --undetected-chrome, show browser window (default: headless)',
+    )
 
     args = parser.parse_args()
 
@@ -46,7 +56,9 @@ def main():
             max_retries=args.retries,
             log_dir=str(log_dir),
             max_workers=args.workers,
-            verify_ssl=not args.no_verify_ssl
+            verify_ssl=not args.no_verify_ssl,
+            use_undetected_chrome=args.undetected_chrome,
+            uc_headless=not args.uc_headed,
         )
 
         data, stats = scraper.scrape(show_progress=not args.quiet)

@@ -14,6 +14,7 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 - Configurable retry mechanism
 - XML content detection and proper handling
 - SSL verification options
+- Optional **undetected-chromedriver** mode (real Chrome) for heavier bot protection or JavaScript-rendered pages
 
 ## Repository layout
 
@@ -36,6 +37,12 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 pip install website-scraper
 ```
 
+With **undetected-chromedriver** (installs [undetected-chromedriver](https://pypi.org/project/undetected-chromedriver/); you still need [Google Chrome](https://www.google.com/chrome/) installed):
+
+```bash
+pip install "website-scraper[undetected]"
+```
+
 ## Usage
 
 ### As a Python Package
@@ -56,6 +63,14 @@ def main():
         max_workers=4,                   # Number of parallel workers (default: CPU count)
         verify_ssl=True                  # Set to False if you have SSL issues
     )
+
+    # Optional: real Chrome via undetected-chromedriver (pip install "website-scraper[undetected]")
+    # scraper = WebScraper(
+    #     base_url="https://example.com",
+    #     log_dir="scraper_logs",
+    #     use_undetected_chrome=True,
+    #     uc_headless=True,
+    # )
 
     # Start scraping with progress bar
     print("Starting to scrape...")
@@ -96,6 +111,14 @@ website-scraper https://example.com \
     --output results.json
 ```
 
+Undetected Chrome (after `pip install "website-scraper[undetected]"`):
+
+```bash
+website-scraper https://example.com --undetected-chrome -o out.json
+# Visible browser window:
+website-scraper https://example.com --undetected-chrome --uc-headed -o out.json
+```
+
 Available options:
 - `-m, --min-delay`: Minimum delay between requests (seconds)
 - `-M, --max-delay`: Maximum delay between requests (seconds)
@@ -105,6 +128,8 @@ Available options:
 - `-o, --output`: Output file path (JSON)
 - `-q, --quiet`: Suppress progress bar
 - `-k, --no-verify-ssl`: Disable SSL verification
+- `--undetected-chrome`: Fetch with undetected-chromedriver (single-process; not compatible with multi-worker pools)
+- `--uc-headed`: With `--undetected-chrome`, disable headless mode
 
 ## Output Format
 
@@ -125,10 +150,13 @@ The scraper outputs JSON data in the following format:
         "failed_urls": 2,
         "start_url": "https://example.com",
         "duration": "5 minutes",
-        "success_rate": "83.3%"
+        "success_rate": "83.3%",
+        "fetch_mode": "requests"
     }
 }
 ```
+
+`stats.fetch_mode` is `"requests"` (default multiprocessing pool) or `"undetected_chrome"` when using `--undetected-chrome` / `use_undetected_chrome=True`.
 
 ## Logging
 

@@ -11,7 +11,8 @@
 
 - **Python:** `>=3.7` per `setup.py` (`python_requires`).
 - **Dependencies:** `requests`, `beautifulsoup4`, `fake-useragent`, `tqdm`, `lxml` (see `install_requires` in `setup.py`).
+- **Optional:** `undetected-chromedriver` via extra `pip install "website-scraper[undetected]"`; host must have a compatible **Chrome** installation.
 
 ## Non-goals
 
-- JavaScript rendering (no headless browser in this line; see `archive/` for historical or experimental snapshots if present).
+- Guaranteeing bypass of every anti-bot system (network reputation and site policy still apply).

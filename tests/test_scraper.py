@@ -1,4 +1,6 @@
 import unittest
+import sys
+import types
 from unittest.mock import patch, MagicMock
 from website_scraper import WebScraper
 from pathlib import Path
@@ -118,6 +120,45 @@ class TestWebScraper(unittest.TestCase):
         self.assertEqual(data['title'], "Test Page")
         self.assertEqual(data['meta_description'], "Test Description")
         self.assertIn("Test Content", data['text'])
+
+    def test_undetected_chrome_raises_without_dependency(self):
+        with patch("website_scraper.scraper.importlib.util.find_spec", return_value=None):
+            scraper = WebScraper(
+                "https://example.com",
+                log_dir=self.test_dir,
+                use_undetected_chrome=True,
+            )
+            with self.assertRaises(ImportError) as ctx:
+                scraper.scrape(show_progress=False)
+            self.assertIn("undetected", str(ctx.exception).lower())
+
+    def test_undetected_chrome_scrape_with_fake_module(self):
+        mock_driver = MagicMock()
+        mock_driver.page_source = (
+            "<html><head><title>UC</title></head><body><p>x</p></body></html>"
+        )
+        fake = types.ModuleType("undetected_chromedriver")
+        fake.ChromeOptions = MagicMock(return_value=MagicMock())
+        fake.Chrome = MagicMock(return_value=mock_driver)
+        sys.modules["undetected_chromedriver"] = fake
+        try:
+            with patch(
+                "website_scraper.scraper.importlib.util.find_spec",
+                return_value=MagicMock(),
+            ):
+                scraper = WebScraper(
+                    "https://example.com",
+                    log_dir=self.test_dir,
+                    use_undetected_chrome=True,
+                )
+                data, stats = scraper.scrape(show_progress=False)
+            self.assertEqual(stats.get("fetch_mode"), "undetected_chrome")
+            self.assertIn("https://example.com", data)
+            self.assertEqual(data["https://example.com"].get("title"), "UC")
+            mock_driver.quit.assert_called()
+        finally:
+            sys.modules.pop("undetected_chromedriver", None)
+
 
 if __name__ == '__main__':
     unittest.main() 

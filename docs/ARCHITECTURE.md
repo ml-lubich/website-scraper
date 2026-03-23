@@ -2,7 +2,7 @@
 
 ## Components
 
-1. **`website_scraper/scraper.py`** — `WebScraper`: HTTP fetch via `requests`, HTML parse via BeautifulSoup, crawl state, optional `ProcessPoolExecutor` for parallel work, progress via `tqdm`.
+1. **`website_scraper/scraper.py`** — `WebScraper`: HTML parse via BeautifulSoup and shared link/data extraction. **Default fetch:** `requests` + optional `ProcessPoolExecutor` for parallel workers. **Optional fetch:** one [undetected-chromedriver](https://pypi.org/project/undetected-chromedriver/) Chrome instance (`use_undetected_chrome=True`) — **single-process only** (no worker pool). Progress via `tqdm`.
 2. **`website_scraper/cli.py`** — Argument parsing, constructs `WebScraper`, writes JSON to stdout or `-o` file.
 3. **`archive/`** — Historical or alternate implementations; **not** part of the installable API (see README repository layout).
 

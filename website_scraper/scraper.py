@@ -21,6 +21,7 @@ from multiprocessing import Manager, freeze_support
 from tqdm import tqdm
 import math
 import warnings
+import importlib.util
 from urllib3.exceptions import InsecureRequestWarning
 from bs4.builder import XMLParsedAsHTMLWarning
 try:
@@ -47,8 +48,12 @@ class WebScraper:
                  max_retries: int = 3,
                  log_dir: str = 'logs',
                  verbose: bool = True,
-                 max_workers: int = None,
-                 verify_ssl: bool = True):
+                 max_workers: Optional[int] = None,
+                 verify_ssl: bool = True,
+                 use_undetected_chrome: bool = False,
+                 uc_headless: bool = True,
+                 uc_page_load_timeout: int = 45,
+                 uc_browser_executable_path: Optional[str] = None):
         
         # Initialize standard components first
         self.base_url = base_url
@@ -56,8 +61,12 @@ class WebScraper:
         self.delay_range = delay_range
         self.max_retries = max_retries
         self.verbose = verbose
-        self.max_workers = max_workers or mp.cpu_count()
         self.verify_ssl = verify_ssl
+        self.use_undetected_chrome = use_undetected_chrome
+        self.uc_headless = uc_headless
+        self.uc_page_load_timeout = uc_page_load_timeout
+        self.uc_browser_executable_path = uc_browser_executable_path
+        self._uc_driver: Optional[object] = None
         
         # Create logs directory first
         self.log_dir = Path(log_dir)
@@ -69,6 +78,15 @@ class WebScraper:
         
         # Initialize logger
         self.logger = self._setup_logger()
+
+        if self.use_undetected_chrome:
+            if max_workers is not None and max_workers != 1:
+                self.logger.warning(
+                    "use_undetected_chrome is not compatible with multiprocessing; using max_workers=1"
+                )
+            self.max_workers = 1
+        else:
+            self.max_workers = max_workers if max_workers is not None else mp.cpu_count()
         
         # Common browser headers patterns
         self.headers_pool = [
@@ -177,6 +195,10 @@ class WebScraper:
 
     def __del__(self):
         """Cleanup method to ensure proper closing of log files."""
+        try:
+            self._quit_uc_driver()
+        except Exception:
+            pass
         if hasattr(self, 'logger') and self.logger:
             for handler in self.logger.handlers:
                 try:
@@ -226,6 +248,172 @@ class WebScraper:
             headers['Viewport-Height'] = str(random.choice([720, 768, 1080]))
         
         return headers
+
+    def _ensure_undetected_chromedriver_installed(self) -> None:
+        if importlib.util.find_spec("undetected_chromedriver") is None:
+            raise ImportError(
+                "undetected-chromedriver is required for use_undetected_chrome=True. "
+                'Install with: pip install "website-scraper[undetected]" '
+                "or pip install undetected-chromedriver"
+            )
+
+    def _quit_uc_driver(self) -> None:
+        driver = getattr(self, "_uc_driver", None)
+        if driver is None:
+            return
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        self._uc_driver = None
+
+    def _create_uc_driver(self) -> object:
+        """Build a single undetected Chrome instance (not fork-safe; one process only)."""
+        self._ensure_undetected_chromedriver_installed()
+        import undetected_chromedriver as uc
+
+        options = uc.ChromeOptions()
+        if self.uc_headless:
+            options.add_argument("--headless=new")
+        if not self.verify_ssl:
+            options.add_argument("--ignore-certificate-errors")
+            options.add_argument("--allow-insecure-localhost")
+        if self.uc_browser_executable_path:
+            options.binary_location = self.uc_browser_executable_path
+
+        driver = uc.Chrome(options=options, use_subprocess=False)
+        driver.set_page_load_timeout(self.uc_page_load_timeout)
+        self._uc_driver = driver
+        return driver
+
+    def _uc_load_page(self, driver: object, url: str) -> Optional[str]:
+        """Navigate with undetected Chrome and return HTML source."""
+        for attempt in range(self.max_retries):
+            try:
+                delay = max(0.1, self._get_random_delay())
+                time.sleep(delay)
+                self.logger.info(
+                    f"Undetected Chrome fetching {url} (attempt {attempt + 1}/{self.max_retries})"
+                )
+                driver.get(url)
+                time.sleep(max(0.1, random.uniform(0.4, 1.2)))
+                html = driver.page_source
+                if html and len(html.strip()) > 0:
+                    return html
+                self.logger.warning(f"Empty page source for {url}")
+            except Exception as exc:
+                self.logger.error(f"Undetected Chrome error on attempt {attempt + 1}: {exc}")
+            if attempt < self.max_retries - 1:
+                backoff = max(0.1, self._get_random_delay() * 2)
+                self.logger.info(f"Retrying in {backoff:.2f} seconds...")
+                time.sleep(backoff)
+        self.logger.error(f"All {self.max_retries} Undetected Chrome attempts failed for {url}")
+        return None
+
+    def _process_url_uc(self, driver: object, url: str) -> tuple:
+        """Fetch one URL via undetected Chrome and parse HTML (single-process only)."""
+        self.logger.info(f"Processing URL (undetected Chrome): {url}")
+        html = self._uc_load_page(driver, url)
+        if not html:
+            return url, None, []
+
+        try:
+            if url.lower().endswith(".xml") or html.lstrip().startswith("<?xml"):
+                soup = BeautifulSoup(html, "xml")
+            else:
+                soup = BeautifulSoup(html, "html.parser")
+            page_data = self._extract_data(soup)
+            new_links = self._extract_links(soup, url)
+            self.logger.info(f"Successfully processed {url} via undetected Chrome")
+            return url, page_data, new_links
+        except Exception as exc:
+            self.logger.error(f"Error parsing content from {url}: {exc}")
+            return url, {"error": str(exc)}, []
+
+    def _scrape_with_undetected_chrome(self, show_progress: bool = True) -> tuple:
+        """Breadth-first crawl using one undetected Chrome driver (no multiprocessing)."""
+        self._ensure_undetected_chromedriver_installed()
+        start_time = time.time()
+        visited: List[str] = []
+        results: dict = {}
+        url_queue: List[str] = [self.base_url]
+        total_estimate = 10
+        progress_count = 0
+
+        pbar = None
+        if show_progress:
+            pbar = tqdm(
+                total=total_estimate,
+                desc="Scraping progress (undetected Chrome)",
+                unit="pages",
+                dynamic_ncols=True,
+                leave=True,
+                file=sys.stdout,
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
+            )
+
+            def format_interval(t):
+                return self._format_time(t)
+
+            pbar.format_interval = format_interval
+
+        try:
+            driver = self._create_uc_driver()
+            while url_queue:
+                url = url_queue.pop(0)
+                if url in visited:
+                    continue
+
+                u, data, new_links = self._process_url_uc(driver, url)
+                visited.append(u)
+                progress_count += 1
+                if data:
+                    results[u] = data
+
+                new_unseen = [
+                    link
+                    for link in new_links
+                    if link not in visited and link not in url_queue
+                ]
+                if new_unseen:
+                    total_estimate = max(
+                        total_estimate,
+                        len(visited) + len(url_queue) + len(new_unseen),
+                    )
+                    if pbar is not None:
+                        pbar.total = total_estimate
+                for link in new_unseen:
+                    url_queue.append(link)
+
+                if pbar is not None:
+                    pbar.n = progress_count
+                    pbar.refresh()
+                self.logger.info(
+                    f"Progress: {(progress_count / total_estimate) * 100:.1f}% "
+                    f"({progress_count}/{total_estimate}) - Queue: {len(url_queue)}"
+                )
+
+            if pbar is not None:
+                pbar.n = max(pbar.total, progress_count)
+                pbar.refresh()
+                pbar.close()
+
+            self.visited_urls.update(visited)
+            duration = time.time() - start_time
+            stats = {
+                "total_pages_scraped": len(results),
+                "total_urls_processed": len(visited),
+                "failed_urls": len(visited) - len(results),
+                "start_url": self.base_url,
+                "duration": self._format_time(duration),
+                "success_rate": f"{(len(results) / len(visited) * 100):.1f}%"
+                if visited
+                else "0%",
+                "fetch_mode": "undetected_chrome",
+            }
+            return results, stats
+        finally:
+            self._quit_uc_driver()
 
     def _make_request(self, url: str, session: requests.Session) -> Optional[requests.Response]:
         """Make request with consistent browser-like behavior and enhanced logging."""
@@ -379,6 +567,12 @@ class WebScraper:
             return f"{hours:.1f} hours"
 
     def scrape(self, show_progress: bool = True) -> tuple[dict, dict]:
+        """Run crawl with ``requests`` (default) or undetected Chrome (``use_undetected_chrome``)."""
+        if self.use_undetected_chrome:
+            return self._scrape_with_undetected_chrome(show_progress)
+        return self._scrape_with_requests_pool(show_progress)
+
+    def _scrape_with_requests_pool(self, show_progress: bool = True) -> tuple[dict, dict]:
         """Main scraping method using multiprocessing with progress tracking."""
         start_time = time.time()
         
@@ -474,7 +668,8 @@ class WebScraper:
                 "failed_urls": len(shared_visited) - len(shared_results),
                 "start_url": self.base_url,
                 "duration": self._format_time(duration),
-                "success_rate": f"{(len(shared_results) / len(shared_visited) * 100):.1f}%" if shared_visited else "0%"
+                "success_rate": f"{(len(shared_results) / len(shared_visited) * 100):.1f}%" if shared_visited else "0%",
+                "fetch_mode": "requests",
             }
             
             return dict(shared_results), stats
@@ -502,6 +697,16 @@ def main():
                       help='Suppress progress bar')
     parser.add_argument('-k', '--no-verify-ssl', action='store_true',
                       help='Disable SSL certificate verification (use with caution)')
+    parser.add_argument(
+        '--undetected-chrome',
+        action='store_true',
+        help='Fetch pages with undetected-chromedriver (real Chrome; requires pip install undetected-chromedriver)',
+    )
+    parser.add_argument(
+        '--uc-headed',
+        action='store_true',
+        help='With --undetected-chrome, run a visible browser window (default is headless)',
+    )
 
     args = parser.parse_args()
 
@@ -525,7 +730,9 @@ def main():
             max_retries=args.retries,
             log_dir=str(log_dir),
             max_workers=args.workers,
-            verify_ssl=not args.no_verify_ssl
+            verify_ssl=not args.no_verify_ssl,
+            use_undetected_chrome=args.undetected_chrome,
+            uc_headless=not args.uc_headed,
         )
 
         data, stats = scraper.scrape(show_progress=not args.quiet)

@@ -1,6 +1,6 @@
 # Overview
 
-**website-scraper** is a Python library and CLI for crawling websites using **requests**, **BeautifulSoup**, and optional **multiprocessing**. It focuses on polite delays, rotating user agents, logging, and JSON-oriented output.
+**website-scraper** is a Python library and CLI for crawling websites using **BeautifulSoup** for parsing. By default it fetches with **requests** and optional **multiprocessing**. Optionally it can fetch with **undetected-chromedriver** (real Chrome) for tougher sites or script-heavy pages. It focuses on polite delays, rotating user agents (HTTP mode), logging, and JSON-oriented output.
 
 ## Distribution
 

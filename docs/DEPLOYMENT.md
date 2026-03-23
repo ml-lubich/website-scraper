@@ -14,6 +14,7 @@ From a clone:
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e .
+pip install -e ".[undetected]"   # optional: Chrome-backed fetching for local testing
 ```
 
 ## Publishing (maintainers)
