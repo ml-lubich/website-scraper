@@ -16,19 +16,10 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 - SSL verification options
 - Optional **undetected-chromedriver** mode (real Chrome) for heavier bot protection or JavaScript-rendered pages
 
-## Repository layout
-
-| Path | Role |
-|------|------|
-| `website_scraper/` | Installable package: `WebScraper`, CLI entrypoint |
-| `tests/` | Unit tests |
-| `examples/` | Optional runnable demos (not installed via `pip`) |
-| `archive/` | Historical snapshots; **not** part of the public API |
-
 ## Documentation
 
 - **Canonical spec:** [`docs/OVERVIEW.md`](docs/OVERVIEW.md) (index) — architecture, API contract, testing, and deployment notes live alongside it in `docs/`.
-- **This README:** install, quick start, CLI reference, and examples.
+- **This README:** install, quick start, CLI reference, and usage.
 - **Releases:** [GitHub releases](https://github.com/ml-lubich/website-scraper/releases) and git history.
 
 ## Installation
@@ -173,14 +164,6 @@ The logs include:
 - Error messages
 - Content type detection
 - Parser selection
-
-## Examples (repo checkout only)
-
-```bash
-python examples/reddit_berkeley_preview.py
-```
-
-Fetches a text preview of a public subreddit HTML page using `requests` + BeautifulSoup. For full-site crawling, use `WebScraper` or the `website-scraper` CLI above.
 
 ## Error Handling
 
