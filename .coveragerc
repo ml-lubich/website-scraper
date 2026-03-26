@@ -1,0 +1,12 @@
+[run]
+source = website_scraper
+omit =
+    website_scraper/llm/openai_provider.py
+    website_scraper/llm/anthropic_provider.py
+    website_scraper/llm/gemini_provider.py
+    website_scraper/llm/ollama_provider.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:

@@ -1,0 +1,2 @@
+"""Browser module tests."""
+

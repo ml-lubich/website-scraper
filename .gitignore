@@ -39,6 +39,7 @@ ENV/
 # Logs
 logs/*
 logs/
+test_logs/
 *.log
 log/
 

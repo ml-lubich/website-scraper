@@ -1,0 +1,2 @@
+"""Extractor module tests."""
+

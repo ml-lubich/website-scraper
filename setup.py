@@ -31,10 +31,14 @@ setup(
         "fake-useragent>=0.1.11",
         "tqdm>=4.50.0",
         "lxml>=4.9.0",
+        "aiohttp>=3.9.0",
+        "aiofiles>=23.0.0",
+        "playwright>=1.40.0",
     ],
     extras_require={
         "dev": [
             "pytest>=7.0.0",
+            "pytest-asyncio>=0.21.0",
             "pytest-cov>=4.0.0",
             "black>=22.0.0",
             "flake8>=4.0.0",

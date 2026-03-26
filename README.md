@@ -18,9 +18,9 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 
 ## Documentation
 
-- **Canonical spec:** [`docs/OVERVIEW.md`](docs/OVERVIEW.md) (index) — architecture, API contract, testing, and deployment notes live alongside it in `docs/`.
-- **This README:** install, quick start, CLI reference, and usage.
-- **Releases:** [GitHub releases](https://github.com/ml-lubich/website-scraper/releases) and git history.
+- **Canonical spec:** five files under [`docs/`](docs/) — start at [`docs/OVERVIEW.md`](docs/OVERVIEW.md).
+- **This README:** install, quick start, CLI, undetected Chrome, examples.
+- **Releases:** [GitHub releases](https://github.com/ml-lubich/website-scraper/releases).
 
 ## Installation
 
