@@ -16,6 +16,16 @@ A robust, multiprocessing-enabled web scraper that can be used both as a module 
 - SSL verification options
 - Optional **undetected-chromedriver** mode (real Chrome) for heavier bot protection or JavaScript-rendered pages
 
+## Repository layout
+
+| Path | Role |
+|------|------|
+| `website_scraper/` | Package: `WebScraper`, optional Playwright/LLM stack, CLI |
+| `docs/` | Five canonical specs (start at `OVERVIEW.md`) |
+| `tests/` | pytest suite |
+| `examples/` | Demos (not installed via `pip`) |
+| `archive/` | Historical code, not part of the public API |
+
 ## Documentation
 
 - **Canonical spec:** five files under [`docs/`](docs/) — start at [`docs/OVERVIEW.md`](docs/OVERVIEW.md).
