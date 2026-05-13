@@ -47,6 +47,7 @@ flowchart LR
 - [Contributing](#contributing)
 - [License](#license)
 - [🗺️ Repository map](#️-repository-map)
+- [📊 Code composition](#-code-composition)
 
 ## Scrape algorithm
 
@@ -331,4 +332,17 @@ mindmap
       LICENSE
       README.md
       requirements.txt
+```
+
+
+## 📊 Code composition
+
+File-type breakdown of source under this repo (skips `.git`, `node_modules`, build caches, lockfiles).
+
+```mermaid
+pie showData title File-type composition of website-scraper (72 files)
+    "Python" : 56
+    "Text" : 7
+    "Markdown" : 6
+    "Other" : 3
 ```
