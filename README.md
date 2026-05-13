@@ -1,6 +1,49 @@
 # Website Scraper
 
-A robust, multiprocessing-enabled web scraper that can be used both as a module and as a command-line tool. Features include rate limiting, bot detection avoidance, and comprehensive logging.
+> A robust, multiprocessing-enabled web scraper that can be used both as
+> a module and as a command-line tool. Features include rate limiting,
+> bot detection avoidance, and comprehensive logging.
+
+```mermaid
+flowchart LR
+    URL[("🌐<br/>start_url")]
+    CLI{{"🧰 CLI<br/>website-scraper"}}
+    SCRAPER["🤖 WebScraper<br/>orchestrator"]
+    POOL["⚙ multiprocessing<br/>workers"]
+    UC["🕵 undetected-chrome<br/><i>optional</i>"]
+    SITE[("🕸 target site")]
+    JSON[/"🧾 results.json"/]
+    LOG[/"📜 logs/*.log"/]
+
+    URL --> CLI --> SCRAPER
+    SCRAPER --> POOL --> SITE
+    SCRAPER -. opt-in .-> UC --> SITE
+    SITE --> SCRAPER
+    SCRAPER --> JSON
+    SCRAPER --> LOG
+
+    classDef io fill:#0e1116,stroke:#2f81f7,stroke-width:1.5px,color:#e6edf3;
+    classDef tool fill:#161b22,stroke:#3fb950,stroke-width:1.5px,color:#e6edf3;
+    classDef brain fill:#161b22,stroke:#d29922,stroke-width:1.5px,color:#e6edf3;
+    classDef out fill:#0e1116,stroke:#a371f7,stroke-width:1.5px,color:#e6edf3;
+    class URL,SITE io;
+    class POOL,UC tool;
+    class CLI,SCRAPER brain;
+    class JSON,LOG out;
+```
+
+## Table of contents
+
+- [Features](#features)
+- [Repository layout](#repository-layout)
+- [Documentation](#documentation)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Output Format](#output-format)
+- [Logging](#logging)
+- [Error Handling](#error-handling)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
