@@ -46,6 +46,7 @@ flowchart LR
 - [Error Handling](#error-handling)
 - [Contributing](#contributing)
 - [License](#license)
+- [🗺️ Repository map](#️-repository-map)
 
 ## Scrape algorithm
 
@@ -288,3 +289,46 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+
+
+## 🗺️ Repository map
+
+Top-level layout of `website-scraper` rendered as a Mermaid mindmap (auto-generated from the on-disk tree).
+
+```mermaid
+mindmap
+  root((website-scraper))
+    docs/
+      API.md
+      ARCHITECTURE.md
+      DEPLOYMENT.md
+      DESIGN.md
+      OVERVIEW.md
+    logs/
+    test_logs/
+    tests/
+      conftest.py
+      test_browser
+      test_browser_real.py
+      test_cli.py
+      test_cli_entrypoint.py
+      test_cli_integration.py
+    website_scraper/
+      __init__.py
+      browser
+      cli.py
+      exporters
+      extractors
+      intelligent_scraper.py
+    website_scraper.egg-info/
+      PKG-INFO
+      SOURCES.txt
+      dependency_links.txt
+      entry_points.txt
+      requires.txt
+      top_level.txt
+    files
+      LICENSE
+      README.md
+      requirements.txt
+```
