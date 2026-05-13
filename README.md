@@ -35,6 +35,8 @@ flowchart LR
 ## Table of contents
 
 - [Features](#features)
+- [Scrape algorithm](#scrape-algorithm)
+- [Worker sequence](#worker-sequence)
 - [Repository layout](#repository-layout)
 - [Documentation](#documentation)
 - [Installation](#installation)
@@ -44,6 +46,57 @@ flowchart LR
 - [Error Handling](#error-handling)
 - [Contributing](#contributing)
 - [License](#license)
+
+## Scrape algorithm
+
+```mermaid
+flowchart LR
+    A([website-scraper --url])
+    B["seed queue with start_url"]
+    C["spawn N worker procs"]
+    D{"queue empty?"}
+    E["pop URL"]
+    F["random delay<br/>rotate UA"]
+    G{"undetected mode?"}
+    H["undetected_chrome.get(URL)"]
+    I["requests.get(URL, ssl?)"]
+    J["parse + extract links"]
+    K["enqueue new URLs"]
+    L["append result"]
+    M["merge worker results"]
+    N["write results.json"]
+    Z([done])
+    A --> B --> C --> D
+    D -- no  --> E --> F --> G
+    G -- yes --> H --> J
+    G -- no  --> I --> J
+    J --> K --> L --> D
+    D -- yes --> M --> N --> Z
+```
+
+## Worker sequence
+
+```mermaid
+sequenceDiagram
+    participant M as main proc
+    participant Q as work queue
+    participant W as worker proc
+    participant S as target site
+    participant L as logger
+
+    M->>Q: seed start_url
+    M->>W: spawn workers
+    loop while not idle
+        W->>Q: pop url
+        W->>S: HTTP GET (with delay)
+        S-->>W: HTML
+        W->>W: parse + extract
+        W->>Q: push child links
+        W->>L: log debug + info
+    end
+    W-->>M: partial result
+    M->>M: merge + write JSON
+```
 
 ## Features
 
